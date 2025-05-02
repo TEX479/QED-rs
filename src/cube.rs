@@ -1,7 +1,11 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, str::FromStr};
+
+use large_int::large_int::LargeInt;
+
+use crate::hilfsfunktionen;
 // use std::{fmt::Debug, ops::Index};
 
-pub struct Cube<T> {
+struct Cube<T> {
     cube: [Vec<Vec<T>>; 6],
     dimensions: usize,
 }
@@ -49,7 +53,7 @@ fn rotate_2dvector<T: Clone + Debug>(
 }
 
 #[derive(Clone, Copy)]
-pub enum Axis {
+enum Axis {
     X,
     Y,
     Z,
@@ -57,7 +61,7 @@ pub enum Axis {
 
 // impl<T: ... + Index<usize>> Cube<T>
 impl<T: Clone + Debug> Cube<T> {
-    pub fn new(dimensions: usize) -> Self {
+    fn new(dimensions: usize) -> Self {
         /*
         let plane = {
             let mut column = Vec::new();
@@ -85,7 +89,7 @@ impl<T: Clone + Debug> Cube<T> {
         }
     }
 
-    pub fn rotate(&mut self, axis: Axis, plane: usize, rotation: i32) -> Result<(), String> {
+    fn rotate(&mut self, axis: Axis, plane: usize, rotation: i32) -> Result<(), String> {
         let rotation_processed = match &axis {
             Axis::Z => (4 - rotation) % 4,
             _ => rotation % 4,
@@ -158,4 +162,45 @@ impl<T: Clone + Debug> Cube<T> {
         self.cube[cube_index] = rotate_2dvector(&self.cube[cube_index], 1)?;
         Ok(())
     }
+}
+
+pub fn cube(
+    mut text: LargeInt,
+    key_m_cube: LargeInt,
+    // cube_dimensions: usize,
+    encryption: bool,
+    self_l: i32,
+) -> LargeInt {
+    if (self_l >= (20 * 20 * 6)) && encryption {
+        let cube_field_data_size_local = self_l / (20 * 20 * 6);
+        let key_m_cube_big = crate::qed_system::get_key_m_cube(
+            hilfsfunktionen::int2anybase(key_m_cube.clone(), LargeInt::from(42)),
+            343,
+            Some(1_000),
+        );
+        text = cube_big(
+            text,
+            key_m_cube_big,
+            20,
+            cube_field_data_size_local,
+            encryption,
+        );
+    }
+
+    let step_array = hilfsfunktionen::int2anybase(key_m_cube, LargeInt::from(18));
+    // use crate::constants::{KEY_M_CUBE_2_INITIAL, QUICK_ROTATE};
+    use crate::qed_system::_mix_letter;
+
+    text
+}
+
+fn cube_big(
+    text: LargeInt,
+    key_m_cube: LargeInt,
+    cube_dimensions: i32,
+    cube_field_data_size: i32,
+    encryption: bool,
+) -> LargeInt {
+    // TODO: add function content
+    todo!()
 }
