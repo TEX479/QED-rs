@@ -18,7 +18,10 @@ fn main() {
     );
     */
     // println!("{}", key_m_cube_2_1);
-    println!("{}", hilfsfunktionen::get_number_length(key_m_cube_2_1) / 8);
+    println!(
+        "{}",
+        hilfsfunktionen::get_number_length(&key_m_cube_2_1) / 8
+    );
     /*
         let mut key_m_cube_vec = Vec::new();
         for i in 0..216 {
@@ -27,4 +30,6 @@ fn main() {
         }
         println!("{:?}", key_m_cube_vec);
     */
+    let number = LargeInt::from(5);
+    println!("{}", (number >> 2) << 2);
 }

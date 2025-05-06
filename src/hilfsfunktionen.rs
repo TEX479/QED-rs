@@ -32,7 +32,7 @@ fn _get_number_length(n: LargeInt, base: u32) -> usize {
     count
 }
 
-pub fn get_number_length(n: LargeInt) -> usize {
+pub fn get_number_length(n: &LargeInt) -> usize {
     let n_str = format!("{:?}", n);
     let n_str_cut = n_str
         .split_once("bytes: [")

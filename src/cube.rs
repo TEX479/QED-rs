@@ -59,6 +59,27 @@ enum Axis {
     Z,
 }
 
+impl From<i32> for Axis {
+    fn from(value: i32) -> Self {
+        /*
+         * WARNING: THIS FUNCTION COULD THEORETICALLY PANIC!!!
+         */
+        let option = value % 3;
+        if option == 0 {
+            Axis::X
+        } else if option == 1 {
+            Axis::Y
+        } else if option == 2 {
+            Axis::Z
+        } else {
+            panic!(
+                "any value modulo 3 should be either 0, 1 or 2, not {:?}",
+                option
+            )
+        }
+    }
+}
+
 // impl<T: ... + Index<usize>> Cube<T>
 impl<T: Clone + Debug> Cube<T> {
     fn new(dimensions: usize) -> Self {
@@ -163,16 +184,76 @@ impl<T: Clone + Debug> Cube<T> {
         Ok(())
     }
 }
+impl Cube<LargeInt> {
+    fn from(&mut self, mut text: LargeInt, cube_field_data_size_bits: usize) -> Result<(), String> {
+        /*
+         *  changes self, even if it errors, so don't proceed when an Err() is returned!
+         */
+
+        let text_length = hilfsfunktionen::get_number_length(&text);
+        let maximum_writable_length =
+            self.dimensions * self.dimensions * 6 * cube_field_data_size_bits;
+        match maximum_writable_length.cmp(&text_length) {
+            std::cmp::Ordering::Greater => {
+                return Err("Can not write provided text to cube: Text is too short.".to_string());
+            }
+            std::cmp::Ordering::Equal => {
+                text /= 2i64.pow((text_length - maximum_writable_length) as u32)
+            }
+            std::cmp::Ordering::Less => (),
+        }
+
+        for plane_index in 0..6 {
+            let mut plane = Vec::new();
+            for x in 0..self.dimensions {
+                plane.push(Vec::new());
+                for y in 0..self.dimensions {
+                    let shift = maximum_writable_length
+                        - (((plane_index * self.dimensions * self.dimensions)
+                            + (x * self.dimensions)
+                            + y)
+                            * cube_field_data_size_bits);
+                    plane[x].push(
+                        (text.clone() >> shift) & (2i64.pow(cube_field_data_size_bits as u32) - 1),
+                    );
+                }
+            }
+            self.cube[plane_index] = plane;
+        }
+
+        Ok(())
+    }
+
+    fn to(&mut self, cube_field_data_size_bits: usize) -> LargeInt {
+        /*
+         * modifies self, so if result is Err(), self may be unusable!
+         *  if cube_field_data_size_bits does not match the value of when the data was written to
+         *  the cube, the result is "random"/unusable.
+         */
+        let mut text = LargeInt::from(0);
+
+        for plane_index in 0..6 {
+            for x in 0..self.dimensions {
+                for y in 0..self.dimensions {
+                    text += self.cube[plane_index][x][y].clone();
+                    text *= 2i64.pow(cube_field_data_size_bits as u32);
+                }
+            }
+        }
+
+        text
+    }
+}
 
 pub fn cube(
     mut text: LargeInt,
     key_m_cube: LargeInt,
     // cube_dimensions: usize,
     encryption: bool,
-    self_l: i32,
-) -> LargeInt {
+    self_l: usize,
+) -> Result<LargeInt, String> {
     if (self_l >= (20 * 20 * 6)) && encryption {
-        let cube_field_data_size_local = self_l / (20 * 20 * 6);
+        let cube_field_data_size_local: usize = self_l / (20 * 20 * 6);
         let key_m_cube_big = crate::qed_system::get_key_m_cube(
             hilfsfunktionen::int2anybase(key_m_cube.clone(), LargeInt::from(42)),
             343,
@@ -184,23 +265,112 @@ pub fn cube(
             20,
             cube_field_data_size_local,
             encryption,
-        );
+        )?;
     }
 
-    let step_array = hilfsfunktionen::int2anybase(key_m_cube, LargeInt::from(18));
-    // use crate::constants::{KEY_M_CUBE_2_INITIAL, QUICK_ROTATE};
+    let step_array = hilfsfunktionen::int2anybase(key_m_cube.clone(), LargeInt::from(18));
+    use crate::constants::{KEY_M_CUBE_2_INITIAL_STR, QUICK_ROTATE};
+    let mut key_m_cube_2 = LargeInt::from_str(KEY_M_CUBE_2_INITIAL_STR).unwrap();
     use crate::qed_system::_mix_letter;
+    for i2 in step_array {
+        let i2_usize: usize = i2.try_into().unwrap();
+        key_m_cube_2 = _mix_letter(
+            false,
+            key_m_cube_2,
+            QUICK_ROTATE[i2_usize].to_vec(),
+            LargeInt::from(216 * 8),
+            8,
+        );
+    }
+    let key_m_cube_2_bitlen = hilfsfunktionen::get_number_length(&key_m_cube_2);
+    if key_m_cube_2_bitlen > (216 * 8) {
+        key_m_cube_2 >>= key_m_cube_2_bitlen - (216 * 8);
+    }
 
-    text
+    let mut key_m_cube_2_bytevec: Vec<usize> = Vec::new();
+    for _ in 0..216 {
+        key_m_cube_2_bytevec.push((key_m_cube_2.clone() & 0xFF).try_into().unwrap());
+        key_m_cube_2 >>= 8;
+    }
+    key_m_cube_2_bytevec.reverse();
+
+    let mut text_scrambled = _mix_letter(encryption, text, key_m_cube_2_bytevec, self_l.into(), 1);
+
+    if (self_l >= (20 * 20 * 6)) && (!encryption) {
+        let cube_field_data_size_local = self_l / (20 * 20 * 6);
+        let key_m_cube_big = crate::qed_system::get_key_m_cube(
+            hilfsfunktionen::int2anybase(key_m_cube, 42.into()),
+            343,
+            Some(1_000),
+        );
+        text_scrambled = cube_big(
+            text_scrambled,
+            key_m_cube_big,
+            20,
+            cube_field_data_size_local,
+            encryption,
+        )?;
+    }
+
+    Ok(text_scrambled)
 }
 
 fn cube_big(
     text: LargeInt,
     key_m_cube: LargeInt,
-    cube_dimensions: i32,
-    cube_field_data_size: i32,
+    cube_dimensions: usize,
+    cube_field_data_size: usize,
     encryption: bool,
-) -> LargeInt {
-    // TODO: add function content
-    todo!()
+) -> Result<LargeInt, String> {
+    let lshift = cube_dimensions.pow(2) * 6 * cube_field_data_size;
+    let text_formatted = text.clone() & (LargeInt::from(2).pow(lshift as u32) - 1);
+
+    let mut cube_instance: Cube<LargeInt> = Cube::new(cube_dimensions);
+    cube_instance.from(text_formatted, cube_field_data_size)?;
+
+    let step_vec = _cube_int_to_moves(key_m_cube, cube_dimensions, encryption)?;
+
+    let rotation = {
+        if encryption {
+            1
+        } else {
+            3 // = (-1) % 4
+        }
+    };
+    for (axis, plane) in step_vec {
+        cube_instance.rotate(axis, plane, rotation)?;
+    }
+
+    Ok(((text >> lshift) << lshift) + cube_instance.to(cube_field_data_size))
+}
+
+fn _cube_int_to_moves(
+    key_m_cube: LargeInt,
+    cube_dimensions: usize,
+    encryption: bool,
+) -> Result<Vec<(Axis, usize)>, String> {
+    let mut step_vec: Vec<(Axis, usize)> = Vec::new();
+    let seed = hilfsfunktionen::int2anybase(key_m_cube, LargeInt::from(cube_dimensions * 3));
+
+    for value in seed {
+        let value_i64: i64 = match value.try_into() {
+            Ok(number) => number,
+            Err(error) => {
+                return Err(format!(
+                    "Can not convert element of seed to i32: {:?}",
+                    error
+                ));
+            }
+        };
+        let axis = Axis::from(value_i64 as i32);
+        let plane: usize = value_i64 as usize / 3;
+
+        step_vec.push((axis, plane));
+    }
+
+    if !encryption {
+        step_vec.reverse();
+    }
+
+    Ok(step_vec)
 }
