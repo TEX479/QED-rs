@@ -37,7 +37,7 @@ fn rotate_2dvector<T: Clone + Debug>(
 
     let mut vector_new = clone_2dvector(vector);
 
-    for _ in 0..(rotations % 4) {
+    for _ in 0..(((rotations % 4) + 4) % 4) {
         // single rotation
         let mut vector_in_construction: Vec<Vec<T>> = Vec::new();
         for x in 0..inside_vector_length {
@@ -61,21 +61,11 @@ enum Axis {
 
 impl From<i32> for Axis {
     fn from(value: i32) -> Self {
-        /*
-         * WARNING: THIS FUNCTION COULD THEORETICALLY PANIC!!!
-         */
-        let option = value % 3;
-        if option == 0 {
-            Axis::X
-        } else if option == 1 {
-            Axis::Y
-        } else if option == 2 {
-            Axis::Z
-        } else {
-            panic!(
-                "any value modulo 3 should be either 0, 1 or 2, not {:?}",
-                option
-            )
+        let option = ((value % 3) + 3) % 3;
+        match option.cmp(&1) {
+            std::cmp::Ordering::Less => Axis::X,
+            std::cmp::Ordering::Equal => Axis::Y,
+            std::cmp::Ordering::Greater => Axis::Z,
         }
     }
 }
@@ -112,8 +102,8 @@ impl<T: Clone + Debug> Cube<T> {
 
     fn rotate(&mut self, axis: Axis, plane: usize, rotation: i32) -> Result<(), String> {
         let rotation_processed = match &axis {
-            Axis::Z => (4 - rotation) % 4,
-            _ => rotation % 4,
+            Axis::Z => (((4 - rotation) % 4) + 4) % 4,
+            _ => ((rotation % 4) + 4) % 4,
         };
         for _ in 0..rotation_processed {
             self._rotate(axis, plane)?;
@@ -256,9 +246,9 @@ pub fn cube(
         let cube_field_data_size_local: usize = self_l / (20 * 20 * 6);
         let key_m_cube_big = crate::qed_system::get_key_m_cube(
             hilfsfunktionen::int2anybase(key_m_cube.clone(), LargeInt::from(42)),
-            343,
+            LargeInt::from(343),
             Some(1_000),
-        );
+        )?;
         text = cube_big(
             text,
             key_m_cube_big,
@@ -300,9 +290,9 @@ pub fn cube(
         let cube_field_data_size_local = self_l / (20 * 20 * 6);
         let key_m_cube_big = crate::qed_system::get_key_m_cube(
             hilfsfunktionen::int2anybase(key_m_cube, 42.into()),
-            343,
+            LargeInt::from(343),
             Some(1_000),
-        );
+        )?;
         text_scrambled = cube_big(
             text_scrambled,
             key_m_cube_big,

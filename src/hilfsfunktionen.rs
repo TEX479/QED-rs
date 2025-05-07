@@ -20,6 +20,49 @@ pub fn int2anybase(mut number: LargeInt, base: LargeInt) -> Vec<LargeInt> {
     output
 }
 
+pub fn int2anybase2(mut number: LargeInt, base: f64) -> Result<Vec<f64>, String> {
+    let mut number_: Vec<f64> = Vec::new();
+    if number != 0 {
+        while number > 0 {
+            let tmp: i128 = match ((number.clone() * 10) % (base * 10.0).floor() as i64).try_into()
+            {
+                Ok(number) => number,
+                Err(msg) => {
+                    return Err(format!(
+                        "Could not convert LargeInt `number` to i128: {:?}",
+                        msg
+                    ));
+                }
+            };
+            number_.push(tmp as f64 / 10.0);
+            number = (number * 10) / ((base * 10.0).floor() as i64);
+        }
+        number_.reverse();
+    } else {
+        number_.push(0.0);
+    }
+    Ok(number_)
+}
+
+pub fn anybase2anybase(number: Vec<LargeInt>, base_input: i64, base_output: i64) -> Vec<LargeInt> {
+    let mut number_ = LargeInt::new();
+    for i in 0..number.len() {
+        number_ += number[number.len() - i - 1].clone() * base_input.pow(i as u32);
+    }
+
+    let mut output_number: Vec<LargeInt> = Vec::new();
+    if number_ != 0 {
+        while number_ > 0 {
+            output_number.push(number_.clone() % base_output);
+            number_ /= base_output;
+        }
+        output_number.reverse();
+    } else {
+        output_number.push(LargeInt::new());
+    }
+    output_number
+}
+
 fn _get_number_length(n: LargeInt, base: u32) -> usize {
     let mut power = LargeInt::from(base);
     let mut count = 1;
@@ -54,36 +97,3 @@ pub fn get_number_length(n: &LargeInt) -> usize {
 
     u128_count * 128 + additional_bits
 }
-
-// TODO: fix all of this nonsense
-/*
-fn anybase2anybase(input: Vec<u64>, input_base: i64, output_base: i64) -> Result<Vec<u64>, String> {
-    let mut number = LargeInt::from(0);
-    let input_len = input.len();
-    for i in 0..input.len() {
-        let shifted_input = match input.get(input_len - i - 1) {
-            Some(value) => value,
-            None => return Err("could not get shifted input in anybase2anybase".to_string()),
-        };
-        number += *shifted_input * (input_base.pow(i as u32) as u64);
-    }
-
-    let mut output_number = Vec::new();
-    if number != 0 {
-        while number > 0 {
-            let (div_result, mod_result) = number.div_with_remainder(output_base);
-            output_number.push(match mod_result.try_into() {
-                Ok(value) => value,
-                Err(error) => {
-                    return Err(format!("conversion error in anybase2anybase: {:?}", error));
-                }
-            });
-            number = div_result;
-        }
-    } else {
-        output_number.push(0);
-    }
-
-    Ok(output_number)
-}
-*/
