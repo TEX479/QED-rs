@@ -23,8 +23,6 @@ impl Key {
         let mut zahl2_converted;
 
         let mut key_start: i64;
-        let key_m_cube: LargeInt =
-            get_key_m_cube(key_normal.clone(), LargeInt::from(key_start), None)?;
         let mut key_normal: Vec<LargeInt> = Vec::new();
         let mut key_mix: f64 = 0.0;
         let key_len: usize = 5;
@@ -249,10 +247,7 @@ pub fn get_key_m_cube(
     mut key_start: LargeInt,
     g: Option<i64>,
 ) -> Result<LargeInt, String> {
-    let g = match g {
-        Some(value) => value,
-        None => 250,
-    };
+    let g = g.unwrap_or(250);
 
     if key_normal.iter().sum::<LargeInt>() - 10 > key_start {
         while key_start > 0 {
@@ -350,12 +345,10 @@ pub fn get_key_m_cube(
         None => return Err("Could not convert `key_m_cube` to string.".to_string()),
     }) {
         Ok(n) => Ok(n),
-        Err(msg) => {
-            return Err(format!(
-                "Could not convert string to key_m_cube_int: {:?}",
-                msg
-            ));
-        }
+        Err(msg) => Err(format!(
+            "Could not convert string to key_m_cube_int: {:?}",
+            msg
+        )),
     }
 }
 

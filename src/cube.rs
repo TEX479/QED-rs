@@ -37,7 +37,7 @@ fn rotate_2dvector<T: Clone + Debug>(
 
     let mut vector_new = clone_2dvector(vector);
 
-    for _ in 0..(((rotations % 4) + 4) % 4) {
+    for _ in 0..rotations.rem_euclid(4) {
         // single rotation
         let mut vector_in_construction: Vec<Vec<T>> = Vec::new();
         for x in 0..inside_vector_length {
@@ -61,7 +61,7 @@ enum Axis {
 
 impl From<i32> for Axis {
     fn from(value: i32) -> Self {
-        let option = ((value % 3) + 3) % 3;
+        let option = value.rem_euclid(3);
         match option.cmp(&1) {
             std::cmp::Ordering::Less => Axis::X,
             std::cmp::Ordering::Equal => Axis::Y,
@@ -103,7 +103,7 @@ impl<T: Clone + Debug> Cube<T> {
     fn rotate(&mut self, axis: Axis, plane: usize, rotation: i32) -> Result<(), String> {
         let rotation_processed = match &axis {
             Axis::Z => (((4 - rotation) % 4) + 4) % 4,
-            _ => ((rotation % 4) + 4) % 4,
+            _ => rotation.rem_euclid(4),
         };
         for _ in 0..rotation_processed {
             self._rotate(axis, plane)?;
